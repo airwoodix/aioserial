@@ -13,40 +13,14 @@ from typing import List, Optional, Union
 import serial
 
 
-class AioSerial(serial.Serial):
-
-    def __init__(
-            self,
-            port: Optional[str] = None,
-            baudrate: int = 9600,
-            bytesize: int = serial.EIGHTBITS,
-            parity: str = serial.PARITY_NONE,
-            stopbits: Union[float, int] = serial.STOPBITS_ONE,
-            timeout: Optional[Union[float, int]] = None,
-            xonxoff: bool = False,
-            rtscts: bool = False,
-            write_timeout: Optional[Union[float, int]] = None,
-            dsrdtr: bool = False,
-            inter_byte_timeout: Optional[Union[float, int]] = None,
-            exclusive: Optional[bool] = None,
-            loop: Optional[asyncio.AbstractEventLoop] = None,
-            cancel_read_timeout: int = 1,
-            cancel_write_timeout: int = 1,
-            **kwargs):
-        super().__init__(
-            port=port,
-            baudrate=baudrate,
-            bytesize=bytesize,
-            parity=parity,
-            stopbits=stopbits,
-            timeout=timeout,
-            xonxoff=xonxoff,
-            rtscts=rtscts,
-            write_timeout=write_timeout,
-            dsrdtr=dsrdtr,
-            inter_byte_timeout=inter_byte_timeout,
-            exclusive=exclusive,
-            **kwargs)
+class _AioSerialMixin(serial.SerialBase):
+    def __init__(self,
+                 *args,
+                 loop: Optional[asyncio.AbstractEventLoop] = None,
+                 cancel_read_timeout: int = 1,
+                 cancel_write_timeout: int = 1,
+                 **kwargs):
+        super().__init__(*args, **kwargs)
         self._loop: Optional[asyncio.AbstractEventLoop] = loop
 
         self._cancel_read_executor: concurrent.futures.ThreadPoolExecutor = \
@@ -155,3 +129,47 @@ class AioSerial(serial.Serial):
             except asyncio.CancelledError:
                 await asyncio.shield(self._cancel_write_async())
                 raise
+
+    def close(self) -> None:
+        self._read_executor.shutdown(wait=False)
+        self._write_executor.shutdown(wait=False)
+        super().close()
+
+
+class AioSerial(_AioSerialMixin, serial.Serial):
+
+    def __init__(
+            self,
+            port: Optional[str] = None,
+            baudrate: int = 9600,
+            bytesize: int = serial.EIGHTBITS,
+            parity: str = serial.PARITY_NONE,
+            stopbits: Union[float, int] = serial.STOPBITS_ONE,
+            timeout: Optional[Union[float, int]] = None,
+            xonxoff: bool = False,
+            rtscts: bool = False,
+            write_timeout: Optional[Union[float, int]] = None,
+            dsrdtr: bool = False,
+            inter_byte_timeout: Optional[Union[float, int]] = None,
+            exclusive: Optional[bool] = None,
+            loop: Optional[asyncio.AbstractEventLoop] = None,
+            cancel_read_timeout: int = 1,
+            cancel_write_timeout: int = 1,
+            **kwargs):
+        super().__init__(
+            port=port,
+            baudrate=baudrate,
+            bytesize=bytesize,
+            parity=parity,
+            stopbits=stopbits,
+            timeout=timeout,
+            xonxoff=xonxoff,
+            rtscts=rtscts,
+            write_timeout=write_timeout,
+            dsrdtr=dsrdtr,
+            inter_byte_timeout=inter_byte_timeout,
+            exclusive=exclusive,
+            loop=loop,
+            cancel_read_timeout=cancel_read_timeout,
+            cancel_write_timeout=cancel_write_timeout,
+            **kwargs)
